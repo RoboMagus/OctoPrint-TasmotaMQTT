@@ -351,7 +351,7 @@ class TasmotaMQTTPlugin(octoprint.plugin.SettingsPlugin,
 				# ToDo: add condition to Settings...
 				if relay["currentstate"] == "ON" and relay["event_on_disconnect"] is True:
 					self._tasmota_mqtt_logger.debug("powering off {} after {} due to disconnect event.".format(relay["topic"],int(relay["disconnectAutoOffDelay"])))
-					t = threading.Timer(int(relay["disconnectAutoOffDelay"]),self.turn_off,[relay])
+					t = threading.Timer(int(relay["disconnectAutoOffDelay"]),self.disconnect_delayed_turn_off,[relay])
 					t.start()
 
 		# File Uploaded Event
@@ -484,6 +484,13 @@ class TasmotaMQTTPlugin(octoprint.plugin.SettingsPlugin,
 			self._tasmota_mqtt_logger.debug("Resetting idle timer since relay %s | %s was just turned on." % (relay["topic"], relay["relayN"]))
 			self._waitForHeaters = False
 			self._reset_idle_timer()
+
+	def disconnect_delayed_turn_off(self, relay):
+		# double check if still disconnected after timeout!
+		if self._printer.is_operational():
+			self._tasmota_mqtt_logger.warning("Disconnected timeout has passed, but printer is OPERATIONAL! Reject turning off Relay: %s" % relay)
+		else:
+			self.turn_off(relay)
 
 	def turn_off(self, relay):
 		if relay["sysCmdOff"]:
